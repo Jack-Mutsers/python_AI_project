@@ -8,13 +8,13 @@ import argparse
 import imutils
 import cv2
 
-# image_path = r"ocr-handwriting-recognition/images/hello_world.png"
+image_path = r"ocr-handwriting-recognition/images/hello_world.png"
 # image_path = r"ocr-handwriting-recognition/images/img-01.png"
 # image_path = r"ocr-handwriting-recognition/images/img-02.jpeg"
 # image_path = r"ocr-handwriting-recognition/images/img-03.jpg"
 # image_path = r"ocr-handwriting-recognition/images/img-04.png"
-image_path = r"ocr-handwriting-recognition/images/img-05.png"
-model_path = r"ocr-handwriting-recognition/handwriting.model"
+# image_path = r"ocr-handwriting-recognition/images/img-05.png"
+model_path = r"ocr-keras-tensorflow/pyimagesearch/models/handwriting.model"
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -96,6 +96,7 @@ preds = model.predict(chars)
 # define the list of label names
 labelNames = "0123456789"
 labelNames += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+labelNames += "abcdefghijklmnopqrstuvwxyz"
 labelNames = [l for l in labelNames]
 
 # loop over the predictions and bounding box locations together
