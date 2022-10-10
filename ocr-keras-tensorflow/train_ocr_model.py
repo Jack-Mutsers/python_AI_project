@@ -18,13 +18,16 @@ import numpy as np
 import argparse
 import cv2
 import datetime as dt
+import sys
+from termcolor import colored
 
 ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
 SGD = tf.keras.optimizers.SGD
 
+emnist_letters_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-letters-train.csv"
 emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train.csv"
 AZ_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/a_z_handwritten_data.csv"
-model_path = r"ocr-keras-tensorflow/pyimagesearch/models/handwriting.model"
+model_path = r"models/new/handwriting.model"
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -42,20 +45,34 @@ BS = 128  #batch size
 start_time = dt.datetime.now()
 print("run started at: " + start_time.strftime("%Y-%m-%d %H:%M:%S"))
 
+# define the list of label names
+labelNames = "0123456789"
+labelNames += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+# labelNames += "abcdefghijklmnopqrstuvwxyz"
+labelNames = [l for l in labelNames]
+
 # load the A-Z and MNIST datasets, respectively
 print("[INFO] loading datasets...")
 (azData, azLabels) = helpers.load_az_dataset(args["az"])
 (digitsData, digitsLabels) = helpers.load_mnist_dataset()
-(emnistData, emnistLabels) = helpers.load_az_dataset(args["emnist"], flipped=True)
+# (emnistClassData, emnistClassLabels) = helpers.load_az_dataset(args["emnist"], flipped=True)
+(emnistLettersData, emnistLettersLabels) = helpers.load_az_dataset(emnist_letters_dataset_path, flipped=True)
 print("[INFO] datasets loaded.")
 
 # the MNIST dataset occupies the labels 0-9, so let's add 10 to every
 # A-Z label to ensure the A-Z characters are not incorrectly labeled as digits
 azLabels += 10
+emnistLettersLabels += 9 # +9 because it starts at 1 instead of 0
 
 # stack the A-Z data and labels with the MNIST digits data and labels
-data = np.vstack([azData, digitsData, emnistData])
-labels = np.hstack([azLabels, digitsLabels, emnistLabels])
+data = np.vstack([azData, digitsData, emnistLettersData])
+labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels])
+# data = np.vstack([emnistLettersData])
+# labels = np.hstack([emnistLettersLabels])
+
+labels_set = set(labels)
+if(len(labels_set) != len(labelNames)):
+	sys.exit(colored("ValueError: Number of classes, 37, does not match size of target_names, 36. Try specifying the labels parameter", "red"))
 
 # each image in the A-Z and MNIST digts datasets are 28x28 pixels;
 # however, the architecture we're using is designed for 32x32 images,
@@ -103,6 +120,10 @@ model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy
 
 # train the network
 print("[INFO] training network...")
+
+training_time = dt.datetime.now()
+print("training started at: " + training_time.strftime("%Y-%m-%d %H:%M:%S"))
+
 H = model.fit(
 	aug.flow(trainX, trainY, batch_size=BS),
 	validation_data=(testX, testY),
@@ -110,12 +131,6 @@ H = model.fit(
 	epochs=EPOCHS,
 	class_weight=classWeight,
 	verbose=1)
-
-# define the list of label names
-labelNames = "0123456789"
-labelNames += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-labelNames += "abcdefghijklmnopqrstuvwxyz"
-labelNames = [l for l in labelNames]
 
 # evaluate the network
 print("[INFO] evaluating network...")
