@@ -6,11 +6,13 @@ import matplotlib
 matplotlib.use("Agg")
 
 # import the necessary packages
+from keras.models import load_model
 from pyimagesearch.models.resnet import ResNet
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from imutils import build_montages
+from os.path import exists
 import pyimagesearch.dataset.helpers as helpers
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -34,6 +36,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("-a", "--az", required=False, help="path to A-Z dataset", default=AZ_dataset_path)
 ap.add_argument("-e", "--emnist", required=False, help="path to emnist dataset", default=emnist_dataset_path)
 ap.add_argument("-m", "--model", type=str, required=False, help="path to output trained handwriting recognition model", default=model_path)
+ap.add_argument("-cn", "--createnew", type=bool, required=False, help="Overwrite curently existing model if one exists on the specified model path", default=False)
 args = vars(ap.parse_args())
 
 # initialize the number of epochs to train for, initial learning rate,
@@ -112,11 +115,18 @@ aug = ImageDataGenerator(
 	horizontal_flip=False,
 	fill_mode="nearest")
 
-# initialize and compile our deep neural network
-print("[INFO] compiling model...")
-opt = SGD(learning_rate=INIT_LR, decay=INIT_LR / EPOCHS)
-model = ResNet.build(32, 32, 1, len(le.classes_), (3, 3, 3), (64, 64, 128, 256), reg=0.0005)
-model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+condition_1 = exists(args["model"])
+condition_2 = args["createnew"]
+
+if(exists(args["model"]) == False or args["createnew"]):
+	# initialize and compile our deep neural network
+	print("[INFO] compiling model...")
+	opt = SGD(learning_rate=INIT_LR, decay=INIT_LR / EPOCHS)
+	model = ResNet.build(32, 32, 1, len(le.classes_), (3, 3, 3), (64, 64, 128, 256), reg=0.0005)
+	model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+else:
+	print("[INFO] loading existing model...")
+	model = load_model(args["model"])
 
 # train the network
 print("[INFO] training network...")
@@ -135,8 +145,7 @@ H = model.fit(
 # evaluate the network
 print("[INFO] evaluating network...")
 predictions = model.predict(testX, batch_size=BS)
-print(classification_report(testY.argmax(axis=1),
-	predictions.argmax(axis=1), target_names=labelNames))
+print(classification_report(testY.argmax(axis=1), predictions.argmax(axis=1), target_names=labelNames))
 
 # save the model to disk
 print("[INFO] serializing network...")
