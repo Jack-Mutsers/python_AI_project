@@ -27,7 +27,7 @@ ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
 SGD = tf.keras.optimizers.SGD
 
 emnist_letters_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-letters-train.csv"
-emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train.csv"
+emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train-modded.csv"
 AZ_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/a_z_handwritten_data.csv"
 model_path = r"models/new/handwriting.model"
 
@@ -58,7 +58,7 @@ labelNames = [l for l in labelNames]
 print("[INFO] loading datasets...")
 (azData, azLabels) = helpers.load_az_dataset(args["az"])
 (digitsData, digitsLabels) = helpers.load_mnist_dataset()
-# (emnistClassData, emnistClassLabels) = helpers.load_az_dataset(args["emnist"], flipped=True)
+(emnistClassData, emnistClassLabels) = helpers.load_az_dataset(args["emnist"], flipped=True)
 (emnistLettersData, emnistLettersLabels) = helpers.load_az_dataset(emnist_letters_dataset_path, flipped=True)
 print("[INFO] datasets loaded.")
 
@@ -68,10 +68,10 @@ azLabels += 10
 emnistLettersLabels += 9 # +9 because it starts at 1 instead of 0
 
 # stack the A-Z data and labels with the MNIST digits data and labels
-data = np.vstack([azData, digitsData, emnistLettersData])
-labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels])
-# data = np.vstack([emnistLettersData])
-# labels = np.hstack([emnistLettersLabels])
+data = np.vstack([azData, digitsData, emnistLettersData, emnistClassData])
+labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels, emnistClassLabels])
+# data = np.vstack([emnistClassData])
+# labels = np.hstack([emnistClassLabels])
 
 labels_set = set(labels)
 if(len(labels_set) != len(labelNames)):
