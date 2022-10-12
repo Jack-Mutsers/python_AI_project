@@ -10,13 +10,15 @@ import cv2
 
 # image_path = r"ocr-handwriting-recognition/images/hello_world.png"
 # image_path = r"ocr-handwriting-recognition/images/img-01.png" # hello world
-image_path = r"ocr-handwriting-recognition/images/img-02.jpeg" # uper with lowercase letters
+# image_path = r"ocr-handwriting-recognition/images/img-02.jpeg" # uper with lowercase letters
 # image_path = r"ocr-handwriting-recognition/images/img-03.jpg" # handwritten fonts
 # image_path = r"ocr-handwriting-recognition/images/img-04.png" # names (white background)
 # image_path = r"ocr-handwriting-recognition/images/img-05.png" # uppercase only
+image_path = r"ocr-handwriting-recognition/images/img-06.jpeg" # uper with lowercase letters (more space + no background)
 
+model_path = r"models/new/handwriting.model"
 # model_path = r"models/working/handwriting-original.model"
-model_path = r"models/working/handwriting-lowercase-support.model"
+# model_path = r"models/working/handwriting-lowercase-support.model"
 # model_path = r"ocr-keras-tensorflow/pyimagesearch/models/handwriting.model"
 
 # construct the argument parser and parse the arguments
