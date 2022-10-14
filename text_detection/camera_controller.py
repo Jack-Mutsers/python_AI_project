@@ -26,9 +26,14 @@ class CameraController:
         self.image = None
         self.outputPath = outputPath
         self.frame = None
+        self.orig = None
         self.thread = None
+        self.detection_thread = None
         self.stopEvent = None
         self.net = cv2.dnn.readNet(east)
+        self.rW = None
+        self.rH = None
+        self.boxes = []
 
         # define the two output layer names for the EAST detector model that
         # we are interested -- the first is the output probabilities and the
@@ -60,6 +65,8 @@ class CameraController:
         self.stopEvent = threading.Event()
         self.thread = threading.Thread(target=self.videoLoop, args=())
         self.thread.start()
+        self.detection_thread = threading.Thread(target=self.detect_words, args=())
+        self.detection_thread.start()
 
 		# set a callback to handle when the window is closed
         self.root.wm_title("PyImageSearch PhotoBooth")
@@ -143,14 +150,24 @@ class CameraController:
                     self.frame = self.vs.read()
                     
                 self.frame = imutils.resize(self.frame, width=1000)
-                orig = self.frame.copy()
+                self.orig = self.frame.copy()
         
-                self.detect_words(orig)
+                # loop over the bounding boxes
+                for (startX, startY, endX, endY) in self.boxes:
+                    # scale the bounding box coordinates based on the respective
+                    # ratios
+                    startX = int(startX * self.rW)
+                    startY = int(startY * self.rH)
+                    endX = int(endX * self.rW)
+                    endY = int(endY * self.rH)
+
+                    # draw the bounding box on the frame
+                    cv2.rectangle(self.orig, (startX, startY), (endX, endY), (0, 255, 0), 2)
 
 				# OpenCV represents images in BGR order; however PIL
 				# represents images in RGB order, so we need to swap
 				# the channels, then convert to PIL and ImageTk format
-                image = cv2.cvtColor(orig, cv2.COLOR_BGR2RGB)
+                image = cv2.cvtColor(self.orig, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(image)
                 image = ImageTk.PhotoImage(image)
 		
@@ -168,45 +185,39 @@ class CameraController:
         except RuntimeError as e:
             print("[INFO] caught a RuntimeError")
 
-    def detect_words(self, frame):
+    def detect_words(self):
         # initialize the original frame dimensions, new frame dimensions,
         # and ratio between the dimensions
         (W, H) = (None, None)
         (newW, newH) = (320, 320)
-        (rW, rH) = (None, None)
 
-        # if our frame dimensions are None, we still need to compute the
-        # ratio of old frame dimensions to new frame dimensions
-        if W is None or H is None:
-            (H, W) = self.frame.shape[:2]
-            rW = W / float(newW)
-            rH = H / float(newH)
+        while not self.stopEvent.is_set():
+            if type(self.orig) == NoneType:
+                continue
 
-        # resize the frame, this time ignoring aspect ratio
-        self.frame = cv2.resize(self.frame, (newW, newH))
+            if hasattr(self.orig, 'shape') is False:
+                continue
 
-        # construct a blob from the frame and then perform a forward pass
-        # of the model to obtain the two output layer sets
-        blob = cv2.dnn.blobFromImage(self.frame, 1.0, (newW, newH), (123.68, 116.78, 103.94), swapRB=True, crop=False)
-        self.net.setInput(blob)
-        (scores, geometry) = self.net.forward(self.layerNames)
-        
-        # decode the predictions, then  apply non-maxima suppression to
-        # suppress weak, overlapping bounding boxes
-        (rects, confidences) = self.decode_predictions(scores, geometry)
-        boxes = non_max_suppression(np.array(rects), probs=confidences)
+            # if our frame dimensions are None, we still need to compute the
+            # ratio of old frame dimensions to new frame dimensions
+            if W is None or H is None:
+                (H, W) = self.frame.shape[:2]
+                self.rW = W / float(newW)
+                self.rH = H / float(newH)
 
-        # loop over the bounding boxes
-        for (startX, startY, endX, endY) in boxes:
-            # scale the bounding box coordinates based on the respective
-            # ratios
-            startX = int(startX * rW)
-            startY = int(startY * rH)
-            endX = int(endX * rW)
-            endY = int(endY * rH)
+            # resize the frame, this time ignoring aspect ratio
+            self.frame = cv2.resize(self.frame, (newW, newH))
 
-            # draw the bounding box on the frame
-            cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 255, 0), 2)
+            # construct a blob from the frame and then perform a forward pass
+            # of the model to obtain the two output layer sets
+            blob = cv2.dnn.blobFromImage(self.frame, 1.0, (newW, newH), (123.68, 116.78, 103.94), swapRB=True, crop=False)
+            self.net.setInput(blob)
+            (scores, geometry) = self.net.forward(self.layerNames)
+            
+            # decode the predictions, then  apply non-maxima suppression to
+            # suppress weak, overlapping bounding boxes
+            (rects, confidences) = self.decode_predictions(scores, geometry)
+            self.boxes = non_max_suppression(np.array(rects), probs=confidences, overlapThresh=0.1)
 
     def takeSnapshot(self):
 		# grab the current timestamp and use it to construct the
