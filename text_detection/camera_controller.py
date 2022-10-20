@@ -270,7 +270,8 @@ class CameraController:
             if type(self.vs) != NoneType:
                 self.vs.stop()
             self.vs = None
-            path = filedialog.askopenfilename( title="Select file", filetypes=(('JPG','*.jpg'), ('JPEG','*.jpeg'),('PNG', '*.png')))
+            filetypes = [('image','*.jpg'), ('image','*.jpeg'),('image', '*.png')]
+            path = filedialog.askopenfilename( title="Select file", filetypes=filetypes)
             self.image = cv2.imread(path)
 
     def onClose(self):
@@ -278,5 +279,8 @@ class CameraController:
 		# the quit process to continue
         print("[INFO] closing...")
         self.stopEvent.set()
-        self.vs.stop()
+        
+        if type(self.vs) != NoneType:
+            self.vs.stop()
+
         self.root.quit()
