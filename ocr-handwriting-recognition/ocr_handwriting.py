@@ -15,6 +15,7 @@ import cv2
 # image_path = r"ocr-handwriting-recognition/images/img-04.png" # names (white background)
 # image_path = r"ocr-handwriting-recognition/images/img-05.png" # uppercase only
 image_path = r"ocr-handwriting-recognition/images/img-06.jpeg" # uper with lowercase letters (more space + no background)
+# image_path = r"ocr-handwriting-recognition/images/canny.png" # uper with lowercase letters (more space + no background)
 # image_path = r"ocr-handwriting-recognition/images/test_picture.PNG" # actual photo
 
 model_path = r"models/new/handwriting.model"

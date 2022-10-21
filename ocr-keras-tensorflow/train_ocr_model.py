@@ -27,9 +27,10 @@ ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
 SGD = tf.keras.optimizers.SGD
 
 emnist_letters_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-letters-train.csv"
-emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train-modded.csv"
+# emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train-modded.csv"
+emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train.csv"
 AZ_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/a_z_handwritten_data.csv"
-model_path = r"models/new/handwriting.model"
+model_path = r"models/new/handwriting-lowercase.model"
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -41,9 +42,13 @@ args = vars(ap.parse_args())
 
 # initialize the number of epochs to train for, initial learning rate,
 # and batch size
-EPOCHS = 50
+EPOCHS = 20
 INIT_LR = 1e-1
 BS = 128  #batch size
+
+gpus = tf.config.experimental.list_physical_devices("GPU")
+for gpu in gpus:
+	tf.config.experimental.set_memory_growth(gpu, True)
 
 start_time = dt.datetime.now()
 print("run started at: " + start_time.strftime("%Y-%m-%d %H:%M:%S"))
@@ -51,7 +56,7 @@ print("run started at: " + start_time.strftime("%Y-%m-%d %H:%M:%S"))
 # define the list of label names
 labelNames = "0123456789"
 labelNames += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-# labelNames += "abcdefghijklmnopqrstuvwxyz"
+labelNames += "abcdefghijklmnopqrstuvwxyz"
 labelNames = [l for l in labelNames]
 
 # load the A-Z and MNIST datasets, respectively
@@ -68,10 +73,18 @@ azLabels += 10
 emnistLettersLabels += 9 # +9 because it starts at 1 instead of 0
 
 # stack the A-Z data and labels with the MNIST digits data and labels
-data = np.vstack([azData, digitsData, emnistLettersData, emnistClassData])
-labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels, emnistClassLabels])
-# data = np.vstack([emnistClassData])
-# labels = np.hstack([emnistClassLabels])
+
+# 0:00 hours per 10 epochs
+# data = np.vstack([azData, digitsData, emnistClassData])
+# labels = np.hstack([azLabels, digitsLabels, emnistClassLabels])
+
+# 0:00 hours per 10 epochs
+# data = np.vstack([azData, digitsData, emnistLettersData, emnistClassData])
+# labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels, emnistClassLabels])
+
+# 1:20 hours per 10 epochs
+data = np.vstack([emnistClassData]) 	
+labels = np.hstack([emnistClassLabels])
 
 labels_set = set(labels)
 if(len(labels_set) != len(labelNames)):

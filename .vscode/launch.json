@@ -11,6 +11,14 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Python: text_detection_video",
+            "type": "python",
+            "request": "launch",
+            "program": "text_detection/text_detection_video.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }

@@ -5,17 +5,19 @@ from types import NoneType
 from imutils.video import VideoStream
 from PIL import Image
 from PIL import ImageTk
-from imutils.object_detection import non_max_suppression
 from tkinter import ttk
 from tkinter import filedialog
 import numpy as np
 import tkinter as tki
+import pandas as pd
+import easyocr
 import threading
 import datetime
 import imutils
 import time
 import cv2
 import os
+
 
 class CameraController:
     def __init__(self, east, outputPath):
@@ -26,6 +28,7 @@ class CameraController:
         self.image = None
         self.outputPath = outputPath
         self.frame = None
+        self.rect_frame = None
         self.orig = None
         self.thread = None
         self.detection_thread = None
@@ -148,8 +151,9 @@ class CameraController:
                     if type(self.vs) == NoneType:
                         continue
                     self.frame = self.vs.read()
-                    
-                self.frame = imutils.resize(self.frame, width=1000)
+                
+                self.frame = imutils.resize(self.frame, width=750)
+                self.rect_frame = self.frame.copy()
                 self.orig = self.frame.copy()
         
                 # loop over the bounding boxes
@@ -191,43 +195,56 @@ class CameraController:
         (W, H) = (None, None)
         (newW, newH) = (320, 320)
 
+        reader = easyocr.Reader(['en'], gpu = True)
         while not self.stopEvent.is_set():
-            if type(self.orig) == NoneType:
+            if type(self.rect_frame) == NoneType:
                 continue
 
-            if hasattr(self.orig, 'shape') is False:
+            if hasattr(self.rect_frame, 'shape') is False:
                 continue
 
             # if our frame dimensions are None, we still need to compute the
             # ratio of old frame dimensions to new frame dimensions
-            if W is None or H is None:
-                (H, W) = self.frame.shape[:2]
+            if W is not self.rect_frame.shape[1] or H is not self.rect_frame.shape[0]:
+                (H, W) = self.rect_frame.shape[:2]
                 self.rW = W / float(newW)
                 self.rH = H / float(newH)
 
             # resize the frame, this time ignoring aspect ratio
-            self.frame = cv2.resize(self.frame, (newW, newH))
+            frame = cv2.resize(self.rect_frame, (newW, newH))
 
-            # construct a blob from the frame and then perform a forward pass
-            # of the model to obtain the two output layer sets
-            blob = cv2.dnn.blobFromImage(self.frame, 1.0, (newW, newH), (123.68, 116.78, 103.94), swapRB=True, crop=False)
-            self.net.setInput(blob)
-            (scores, geometry) = self.net.forward(self.layerNames)
+            results = reader.readtext(frame)
+
+            items = pd.DataFrame(results, columns=['bbox','text','conf'])
             
-            # decode the predictions, then  apply non-maxima suppression to
-            # suppress weak, overlapping bounding boxes
-            (rects, confidences) = self.decode_predictions(scores, geometry)
-            self.boxes = non_max_suppression(np.array(rects), probs=confidences, overlapThresh=0.1)
+            # print(items)
+            
+            boxes = []
+            for bbox in items["bbox"]:
+                start_point = [999, 999]
+                end_point = [0, 0]
+                for position in bbox:
+                    if position[0] <= start_point[0] and position[1] <= start_point[1]:
+                        start_point = position
+                    
+                    if position[0] >= end_point[0] and position[1] >= end_point[1]:
+                        end_point = position
+
+                boxes.append(start_point + end_point)
+            
+            self.boxes = boxes
 
     def takeSnapshot(self):
 		# grab the current timestamp and use it to construct the
 		# output path
         ts = datetime.datetime.now()
+        dirname = os.path.dirname(__file__)
+        filepath = os.path.relpath(dirname) + "/snapshots"
         filename = "{}.jpg".format(ts.strftime("%Y-%m-%d_%H-%M-%S"))
-        p = os.path.sep.join((self.outputPath, filename))
+        p = os.path.sep.join((filepath, filename))
 
 		# save the file
-        cv2.imwrite(p, self.frame.copy())
+        cv2.imwrite(p, self.orig.copy())
         print("[INFO] saved {}".format(filename))
 
     def returnCameraIndexes(self):
@@ -271,8 +288,8 @@ class CameraController:
                 self.vs.stop()
             self.vs = None
             filetypes = [('image','*.jpg'), ('image','*.jpeg'),('image', '*.png')]
-            path = filedialog.askopenfilename( title="Select file", filetypes=filetypes)
-            self.image = cv2.imread(path)
+            self.path = filedialog.askopenfilename( title="Select file", filetypes=filetypes)
+            self.image = cv2.imread(self.path)
 
     def onClose(self):
 		# set the stop event, cleanup the camera, and allow the rest of
