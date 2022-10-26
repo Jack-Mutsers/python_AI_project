@@ -21,16 +21,39 @@ import argparse
 import cv2
 import datetime as dt
 import sys
+import os
 from termcolor import colored
 
-ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
-SGD = tf.keras.optimizers.SGD
-
-emnist_letters_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-letters-train.csv"
+emnist_letters_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-letters-train-modded.csv"
 # emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train-modded.csv"
 emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train.csv"
 AZ_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/a_z_handwritten_data.csv"
 model_path = r"models/new/handwriting-lowercase.model"
+
+add_delay = False
+if add_delay:
+	import time
+
+	current_time = dt.datetime.now()
+	await_time = dt.datetime.now() + dt.timedelta(hours=1, minutes=57)
+	print("current time: " + current_time.strftime("%Y-%m-%d %H:%M:%S"))
+	print("run time: " + await_time.strftime("%Y-%m-%d %H:%M:%S"))
+
+	while(current_time < await_time):
+		time.sleep(1800)
+		current_time = dt.datetime.now()
+		print("waiting to start")
+		print("current time: " + current_time.strftime("%Y-%m-%d %H:%M:%S"))
+
+	print("done waiting")
+
+
+	import shutil
+	dst_dir=r"models/new/handwriting-lowercase-back-up.model"
+	shutil.copy(model_path,dst_dir)
+
+ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
+SGD = tf.keras.optimizers.SGD
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -42,9 +65,12 @@ args = vars(ap.parse_args())
 
 # initialize the number of epochs to train for, initial learning rate,
 # and batch size
-EPOCHS = 20
+EPOCHS = 40
 INIT_LR = 1e-1
-BS = 128  #batch size
+BS = 100  #batch size
+
+os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+print(os.getenv("TF_GPU_ALLOCATOR"))
 
 gpus = tf.config.experimental.list_physical_devices("GPU")
 for gpu in gpus:
@@ -75,16 +101,16 @@ emnistLettersLabels += 9 # +9 because it starts at 1 instead of 0
 # stack the A-Z data and labels with the MNIST digits data and labels
 
 # 0:00 hours per 10 epochs
-# data = np.vstack([azData, digitsData, emnistClassData])
-# labels = np.hstack([azLabels, digitsLabels, emnistClassLabels])
+data = np.vstack([azData, digitsData, emnistLettersData])
+labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels])
 
-# 0:00 hours per 10 epochs
+# 3:10:29 hours per 10 epochs
 # data = np.vstack([azData, digitsData, emnistLettersData, emnistClassData])
 # labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels, emnistClassLabels])
 
-# 1:20 hours per 10 epochs
-data = np.vstack([emnistClassData]) 	
-labels = np.hstack([emnistClassLabels])
+# 1:20:00 hours per 10 epochs
+# data = np.vstack([emnistClassData]) 	
+# labels = np.hstack([emnistClassLabels])
 
 labels_set = set(labels)
 if(len(labels_set) != len(labelNames)):
@@ -114,116 +140,129 @@ classWeight = {}
 for i in range(0, len(classTotals)):
 	classWeight[i] = classTotals.max() / classTotals[i]
 
-# partition the data into training and testing splits using 80% of
-# the data for training and the remaining 20% for testing
-(trainX, testX, trainY, testY) = train_test_split(data, labels, test_size=0.20, stratify=labels, random_state=42)
+train_sessions = 2
+for i in range(train_sessions):
+	# log_path = "ocr-keras-tensorflow/logs/" + start_time.strftime("%Y-%m-%d %H_%M")
+	# Path(log_path).mkdir(parents=True, exist_ok=True)
 
-# construct the image generator for data augmentation
-aug = ImageDataGenerator(
-	rotation_range=10,
-	zoom_range=0.05,
-	width_shift_range=0.1,
-	height_shift_range=0.1,
-	shear_range=0.15,
-	horizontal_flip=False,
-	fill_mode="nearest")
+	# f = open(log_path + "/training_session_"+ str(i) +".md", 'w')
+	# sys.stdout = f
 
-condition_1 = exists(args["model"])
-condition_2 = args["createnew"]
+	print("started training session " + str(i+1))
 
-if(exists(args["model"]) == False or args["createnew"]):
-	# initialize and compile our deep neural network
-	print("[INFO] compiling model...")
-	opt = SGD(learning_rate=INIT_LR, decay=INIT_LR / EPOCHS)
-	model = ResNet.build(32, 32, 1, len(le.classes_), (3, 3, 3), (64, 64, 128, 256), reg=0.0005)
-	model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
-else:
-	print("[INFO] loading existing model...")
-	model = load_model(args["model"])
+	# partition the data into training and testing splits using 80% of
+	# the data for training and the remaining 20% for testing
+	(trainX, testX, trainY, testY) = train_test_split(data, labels, test_size=0.20, stratify=labels, random_state=42)
 
-# train the network
-print("[INFO] training network...")
+	# construct the image generator for data augmentation
+	aug = ImageDataGenerator(
+		rotation_range=10,
+		zoom_range=0.05,
+		width_shift_range=0.1,
+		height_shift_range=0.1,
+		shear_range=0.15,
+		horizontal_flip=False,
+		fill_mode="nearest")
 
-training_time = dt.datetime.now()
-print("training started at: " + training_time.strftime("%Y-%m-%d %H:%M:%S"))
+	condition_1 = exists(args["model"])
+	condition_2 = args["createnew"]
 
-H = model.fit(
-	aug.flow(trainX, trainY, batch_size=BS),
-	validation_data=(testX, testY),
-	steps_per_epoch=len(trainX) // BS,
-	epochs=EPOCHS,
-	class_weight=classWeight,
-	verbose=1)
+	if(exists(args["model"]) == False or args["createnew"]):
+		# initialize and compile our deep neural network
+		print("[INFO] compiling model...")
+		opt = SGD(learning_rate=INIT_LR, decay=INIT_LR / EPOCHS)
+		model = ResNet.build(32, 32, 1, len(le.classes_), (3, 3, 3), (64, 64, 128, 256), reg=0.0005)
+		model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+	else:
+		print("[INFO] loading existing model...")
+		model = load_model(args["model"])
 
-# evaluate the network
-print("[INFO] evaluating network...")
-predictions = model.predict(testX, batch_size=BS)
-print(classification_report(testY.argmax(axis=1), predictions.argmax(axis=1), target_names=labelNames))
+	# train the network
+	print("[INFO] training network...")
 
-# save the model to disk
-print("[INFO] serializing network...")
-model.save(args["model"], save_format="h5")
+	training_time = dt.datetime.now()
+	print("training started at: " + training_time.strftime("%Y-%m-%d %H:%M:%S"))
 
-# construct a plot that plots and saves the training history
-N = np.arange(0, EPOCHS)
-plt.style.use("ggplot")
-plt.figure()
-plt.plot(N, H.history["loss"], label="train_loss")
-plt.plot(N, H.history["val_loss"], label="val_loss")
-plt.title("Training Loss and Accuracy")
-plt.xlabel("Epoch #")
-plt.ylabel("Loss/Accuracy")
-plt.legend(loc="lower left")
-try:
-	filename = "ocr-keras-tensorflow/plots/" + helpers.get_unique_filename("plot")
-	plt.savefig(filename)
-except Exception as e:
-	print("could not save plot")
+	H = model.fit(
+		aug.flow(trainX, trainY, batch_size=BS),
+		validation_data=(testX, testY),
+		steps_per_epoch=len(trainX) // BS,
+		epochs=EPOCHS,
+		class_weight=classWeight,
+		verbose=1)
 
-# initialize our list of output test images
-images = []
+	# save the model to disk
+	print("[INFO] serializing network...")
+	model.save(args["model"], save_format="h5")
 
-# randomly select a few testing characters
-for i in np.random.choice(np.arange(0, len(testY)), size=(49,)):
-	# classify the character
-	probs = model.predict(testX[np.newaxis, i])
-	prediction = probs.argmax(axis=1)
-	label = labelNames[prediction[0]]
+	# evaluate the network
+	print("[INFO] evaluating network...")
+	predictions = model.predict(testX, batch_size=BS)
+	print(classification_report(testY.argmax(axis=1), predictions.argmax(axis=1), target_names=labelNames))
 
-	# extract the image from the test data and initialize the text
-	# label color as green (correct)
-	image = (testX[i] * 255).astype("uint8")
-	color = (0, 255, 0)
+	# construct a plot that plots and saves the training history
+	N = np.arange(0, EPOCHS)
+	plt.style.use("ggplot")
+	plt.figure()
+	plt.plot(N, H.history["loss"], label="train_loss")
+	plt.plot(N, H.history["val_loss"], label="val_loss")
+	plt.title("Training Loss and Accuracy")
+	plt.xlabel("Epoch #")
+	plt.ylabel("Loss/Accuracy")
+	plt.legend(loc="lower left")
+	try:
+		filename = "ocr-keras-tensorflow/plots/" + helpers.get_unique_filename("plot")
+		plt.savefig(filename)
+	except Exception as e:
+		print("could not save plot")
 
-	# otherwise, the class label prediction is incorrect
-	if prediction[0] != np.argmax(testY[i]):
-		color = (0, 0, 255)
+	# initialize our list of output test images
+	images = []
 
-	# merge the channels into one image, resize the image from 32x32
-	# to 96x96 so we can better see it and then draw the predicted
-	# label on the image
-	image = cv2.merge([image] * 3)
-	image = cv2.resize(image, (96, 96), interpolation=cv2.INTER_LINEAR)
-	cv2.putText(image, label, (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
-		color, 2)
+	# randomly select a few testing characters
+	for i in np.random.choice(np.arange(0, len(testY)), size=(49,)):
+		# classify the character
+		probs = model.predict(testX[np.newaxis, i])
+		prediction = probs.argmax(axis=1)
+		label = labelNames[prediction[0]]
 
-	# add the image to our list of output images
-	images.append(image)
+		# extract the image from the test data and initialize the text
+		# label color as green (correct)
+		image = (testX[i] * 255).astype("uint8")
+		color = (0, 255, 0)
 
-# construct the montage for the images
-montage = build_montages(images, (96, 96), (7, 7))[0]
+		# otherwise, the class label prediction is incorrect
+		if prediction[0] != np.argmax(testY[i]):
+			color = (0, 0, 255)
+
+		# merge the channels into one image, resize the image from 32x32
+		# to 96x96 so we can better see it and then draw the predicted
+		# label on the image
+		image = cv2.merge([image] * 3)
+		image = cv2.resize(image, (96, 96), interpolation=cv2.INTER_LINEAR)
+		cv2.putText(image, label, (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+			color, 2)
+
+		# add the image to our list of output images
+		images.append(image)
+
+	# construct the montage for the images
+	montage = build_montages(images, (96, 96), (7, 7))[0]
+
+
+	# show the output montage
+	try:
+		filename = "ocr-keras-tensorflow/images/" + helpers.get_unique_filename("OCR Results")
+		cv2.imwrite(filename, montage)
+	except Exception as e:
+		print("could not save image")
+
+	# f.close()
 
 end_time = dt.datetime.now()
 duration = end_time-start_time
 print("run finished at: " + end_time.strftime("%Y-%m-%d %H:%M:%S"))
 print("total duration: " + str(duration))
 
-# show the output montage
-try:
-	filename = "ocr-keras-tensorflow/images/" + helpers.get_unique_filename("OCR Results")
-	cv2.imwrite(filename, montage)
-except Exception as e:
-	print("could not save image")
-
-cv2.imshow("OCR Results", montage)
-cv2.waitKey(0)
+# cv2.imshow("OCR Results", montage)
+# cv2.waitKey(0)

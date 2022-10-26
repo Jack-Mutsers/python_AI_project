@@ -18,7 +18,8 @@ image_path = r"ocr-handwriting-recognition/images/img-06.jpeg" # uper with lower
 # image_path = r"ocr-handwriting-recognition/images/canny.png" # uper with lowercase letters (more space + no background)
 # image_path = r"ocr-handwriting-recognition/images/test_picture.PNG" # actual photo
 
-model_path = r"models/new/handwriting.model"
+# model_path = r"models/new/handwriting.model"
+model_path = r"models/new/handwriting-lowercase.model"
 # model_path = r"models/working/handwriting-original.model"
 # model_path = r"models/working/handwriting-lowercase-support.model"
 # model_path = r"ocr-keras-tensorflow/pyimagesearch/models/handwriting.model"
