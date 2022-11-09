@@ -14,46 +14,61 @@ from sklearn.metrics import classification_report
 from imutils import build_montages
 from os.path import exists
 import pyimagesearch.dataset.helpers as helpers
-import tensorflow as tf
 import matplotlib.pyplot as plt
+import tensorflow as tf
+import datetime as dt
 import numpy as np
 import argparse
+import shutil
 import cv2
-import datetime as dt
 import sys
 import os
 from termcolor import colored
 
-emnist_letters_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-letters-train-modded.csv"
+emnist_letters_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-letters-train-lowercase.csv"
 # emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train-modded.csv"
 emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train.csv"
 AZ_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/a_z_handwritten_data.csv"
 model_path = r"models/new/handwriting-lowercase.model"
 
 add_delay = False
+make_backup = False
+copy_model = True
+
+# initialize the number of epochs to train for, initial learning rate,
+# and batch size
+TRAIN_SESSIONS = 4
+EPOCHS = 1
+INIT_LR = 1e-1
+BS = 900  #batch size
+
+if os.path.exists("models") is False:
+	os.makedirs("models")
+	os.makedirs("models/back-up")
+	os.makedirs("models/new")
+	os.makedirs("models/incorrect")
+	os.makedirs("models/working")
+
 if add_delay:
 	import time
 
 	current_time = dt.datetime.now()
-	await_time = dt.datetime.now() + dt.timedelta(hours=1, minutes=57)
+	await_time = dt.datetime.now() + dt.timedelta(hours=0, minutes=30)
 	print("current time: " + current_time.strftime("%Y-%m-%d %H:%M:%S"))
-	print("run time: " + await_time.strftime("%Y-%m-%d %H:%M:%S"))
+	print("starting time: " + await_time.strftime("%Y-%m-%d %H:%M:%S"))
 
 	while(current_time < await_time):
-		time.sleep(1800)
+		time.sleep(310)
 		current_time = dt.datetime.now()
 		print("waiting to start")
 		print("current time: " + current_time.strftime("%Y-%m-%d %H:%M:%S"))
 
 	print("done waiting")
 
-
-	import shutil
+if make_backup:
 	dst_dir=r"models/new/handwriting-lowercase-back-up.model"
 	shutil.copy(model_path,dst_dir)
 
-ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
-SGD = tf.keras.optimizers.SGD
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -63,11 +78,9 @@ ap.add_argument("-m", "--model", type=str, required=False, help="path to output 
 ap.add_argument("-cn", "--createnew", type=bool, required=False, help="Overwrite curently existing model if one exists on the specified model path", default=False)
 args = vars(ap.parse_args())
 
-# initialize the number of epochs to train for, initial learning rate,
-# and batch size
-EPOCHS = 40
-INIT_LR = 1e-1
-BS = 100  #batch size
+# optimise memory chunking for graphical prosessing cards
+ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
+SGD = tf.keras.optimizers.SGD
 
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 print(os.getenv("TF_GPU_ALLOCATOR"))
@@ -75,6 +88,9 @@ print(os.getenv("TF_GPU_ALLOCATOR"))
 gpus = tf.config.experimental.list_physical_devices("GPU")
 for gpu in gpus:
 	tf.config.experimental.set_memory_growth(gpu, True)
+	tf.config.experimental.set_virtual_device_configuration(gpu,
+        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6144)])
+
 
 start_time = dt.datetime.now()
 print("run started at: " + start_time.strftime("%Y-%m-%d %H:%M:%S"))
@@ -89,20 +105,24 @@ labelNames = [l for l in labelNames]
 print("[INFO] loading datasets...")
 (azData, azLabels) = helpers.load_az_dataset(args["az"])
 (digitsData, digitsLabels) = helpers.load_mnist_dataset()
-(emnistClassData, emnistClassLabels) = helpers.load_az_dataset(args["emnist"], flipped=True)
+# (emnistClassData, emnistClassLabels) = helpers.load_az_dataset(args["emnist"], flipped=True)
 (emnistLettersData, emnistLettersLabels) = helpers.load_az_dataset(emnist_letters_dataset_path, flipped=True)
 print("[INFO] datasets loaded.")
 
 # the MNIST dataset occupies the labels 0-9, so let's add 10 to every
 # A-Z label to ensure the A-Z characters are not incorrectly labeled as digits
 azLabels += 10
-emnistLettersLabels += 9 # +9 because it starts at 1 instead of 0
+# emnistLettersLabels += 9 # +9 because it starts at index 1 instead of 0
 
 # stack the A-Z data and labels with the MNIST digits data and labels
 
 # 0:00 hours per 10 epochs
-data = np.vstack([azData, digitsData, emnistLettersData])
-labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels])
+# data = np.vstack([azData, digitsData, emnistLettersData])
+# labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels])
+
+# 0:00 hours per 10 epochs
+data = np.vstack([digitsData, emnistLettersData])
+labels = np.hstack([digitsLabels, emnistLettersLabels])
 
 # 3:10:29 hours per 10 epochs
 # data = np.vstack([azData, digitsData, emnistLettersData, emnistClassData])
@@ -140,8 +160,7 @@ classWeight = {}
 for i in range(0, len(classTotals)):
 	classWeight[i] = classTotals.max() / classTotals[i]
 
-train_sessions = 2
-for i in range(train_sessions):
+for i in range(TRAIN_SESSIONS):
 	# log_path = "ocr-keras-tensorflow/logs/" + start_time.strftime("%Y-%m-%d %H_%M")
 	# Path(log_path).mkdir(parents=True, exist_ok=True)
 
@@ -152,7 +171,7 @@ for i in range(train_sessions):
 
 	# partition the data into training and testing splits using 80% of
 	# the data for training and the remaining 20% for testing
-	(trainX, testX, trainY, testY) = train_test_split(data, labels, test_size=0.20, stratify=labels, random_state=42)
+	(trainX, testX, trainY, testY) = train_test_split(data, labels, test_size=0.10, stratify=labels, random_state=42)
 
 	# construct the image generator for data augmentation
 	aug = ImageDataGenerator(
@@ -189,11 +208,24 @@ for i in range(train_sessions):
 		steps_per_epoch=len(trainX) // BS,
 		epochs=EPOCHS,
 		class_weight=classWeight,
-		verbose=1)
+		verbose=1
+	)
 
 	# save the model to disk
 	print("[INFO] serializing network...")
 	model.save(args["model"], save_format="h5")
+
+	if copy_model:
+		model_path_arr = args["model"].split("/")
+		new_model_path = "models/back-up/" + start_time.strftime("%Y-%m-%d_%H-%M-%S") + "/"
+		
+		if os.path.exists(new_model_path) is False:
+			os.makedirs(new_model_path)
+
+		model_name = model_path_arr[-1].split(".")
+		new_model_name = new_model_path + model_name[0] + "-" + str(i+1) + "x" + str(EPOCHS) + model_name[1]
+		shutil.copy(args["model"], new_model_name)
+
 
 	# evaluate the network
 	print("[INFO] evaluating network...")
@@ -249,6 +281,7 @@ for i in range(train_sessions):
 	# construct the montage for the images
 	montage = build_montages(images, (96, 96), (7, 7))[0]
 
+	tf.keras.backend.clear_session()
 
 	# show the output montage
 	try:
