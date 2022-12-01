@@ -2,7 +2,11 @@
 fine-tuning-keras/
 
 *.zip
+*.csv
+*.pyc
 
 ocr-keras-tensorflow/pyimagesearch/dataset/A_Z_handwritten_data.csv
 
 ocr-keras-tensorflow/pyimagesearch/dataset/emnist/
+
+models/back-up/*

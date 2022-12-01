@@ -15,7 +15,7 @@ from keras import backend as K
 
 class ResNet:
     @staticmethod
-    def residual_module(data, K, stride, chanDim, red=False, reg=0.0001, bnEps=2e-5, bnMom=0.9):
+    def residual_module(data, K, stride, chanDim, reduce=False, reg=0.0001, bnEps=2e-5, bnMom=0.9):
 
         # the shortcut branch of the ResNet module should be
         # initialize as the input (identity) data
@@ -37,7 +37,7 @@ class ResNet:
         conv3 = Conv2D(K, (1, 1), use_bias=False, kernel_regularizer=l2(reg))(act3)
 
         # if we are to reduce the spatial size, apply a CONV layer to the shortcut
-        if red:
+        if reduce:
             shortcut = Conv2D(K, (1, 1), strides=stride, use_bias=False, kernel_regularizer=l2(reg))(act1)
 
         # add together the shortcut and the final CONV
@@ -74,7 +74,7 @@ class ResNet:
             # initialize the stride, then apply a residual module
             # used to reduce the spatial size of the input volume
             stride = (1, 1) if i == 0 else (2, 2)
-            x = ResNet.residual_module(x, filters[i + 1], stride, chanDim, red=True, bnEps=bnEps, bnMom=bnMom)
+            x = ResNet.residual_module(x, filters[i + 1], stride, chanDim, reduce=True, bnEps=bnEps, bnMom=bnMom)
 
             # loop over the number of layers in the stage
             for j in range(0, stages[i] - 1):
@@ -93,6 +93,8 @@ class ResNet:
 
         # create the model
         model = Model(inputs, x, name="resnet")
+
+        # print(model.summary())
 
         # return the constructed network architecture
         return model

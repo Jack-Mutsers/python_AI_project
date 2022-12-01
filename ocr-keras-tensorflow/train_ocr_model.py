@@ -134,7 +134,11 @@ labels = np.hstack([digitsLabels, emnistLettersLabels])
 
 labels_set = set(labels)
 if(len(labels_set) != len(labelNames)):
-	sys.exit(colored("ValueError: Number of classes, 37, does not match size of target_names, 36. Try specifying the labels parameter", "red"))
+	print(labels_set)
+	print()
+	print(labelNames)
+	print()
+	sys.exit(colored("ValueError: Number of classes, "+ str(len(labels_set)) +", does not match the size of the labelNames, "+ str(len(labelNames)) +". Try specifying the labels parameter", "red"))
 
 # each image in the A-Z and MNIST digts datasets are 28x28 pixels;
 # however, the architecture we're using is designed for 32x32 images,
@@ -166,7 +170,7 @@ for i in range(TRAIN_SESSIONS):
 
 	# f = open(log_path + "/training_session_"+ str(i) +".md", 'w')
 	# sys.stdout = f
-
+	
 	print("started training session " + str(i+1))
 
 	# partition the data into training and testing splits using 80% of
@@ -183,14 +187,11 @@ for i in range(TRAIN_SESSIONS):
 		horizontal_flip=False,
 		fill_mode="nearest")
 
-	condition_1 = exists(args["model"])
-	condition_2 = args["createnew"]
-
 	if(exists(args["model"]) == False or args["createnew"]):
 		# initialize and compile our deep neural network
 		print("[INFO] compiling model...")
 		opt = SGD(learning_rate=INIT_LR, decay=INIT_LR / EPOCHS)
-		model = ResNet.build(32, 32, 1, len(le.classes_), (3, 3, 3), (64, 64, 128, 256), reg=0.0005)
+		model = ResNet.build(width=32, height=32, depth=1, classes=len(le.classes_), stages=(3, 4, 4), filters=(64, 64, 128, 256), reg=0.0005)
 		model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
 	else:
 		print("[INFO] loading existing model...")
@@ -223,7 +224,7 @@ for i in range(TRAIN_SESSIONS):
 			os.makedirs(new_model_path)
 
 		model_name = model_path_arr[-1].split(".")
-		new_model_name = new_model_path + model_name[0] + "-" + str(i+1) + "x" + str(EPOCHS) + model_name[1]
+		new_model_name = new_model_path + model_name[0] + "-" + str(i+1) + "x" + str(EPOCHS) + "." + model_name[1]
 		shutil.copy(args["model"], new_model_name)
 
 
