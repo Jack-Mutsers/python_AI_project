@@ -98,3 +98,4 @@ class ResNet:
 
         # return the constructed network architecture
         return model
+    

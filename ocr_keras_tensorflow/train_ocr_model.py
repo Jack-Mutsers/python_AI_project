@@ -1,5 +1,5 @@
 # https://pyimagesearch.com/2020/08/17/ocr-with-keras-tensorflow-and-deep-learning/
-# start command: python ocr-keras-tensorflow/train_ocr_model.py --az ocr-keras-tensorflow/a_z_handwritten_data.csv --model ocr-keras-tensorflow/handwriting.model
+# start command: python ocr_keras_tensorflow/train_ocr_model.py --az ocr_keras_tensorflow/a_z_handwritten_data.csv --model ocr_keras_tensorflow/handwriting.model
 
 # set the matplotlib backend so figures can be saved in the background
 import matplotlib
@@ -8,7 +8,6 @@ matplotlib.use("Agg")
 # import the necessary packages
 from keras.models import load_model
 from pyimagesearch.models.resnet import ResNet
-from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from imutils import build_montages
@@ -19,28 +18,40 @@ import tensorflow as tf
 import datetime as dt
 import numpy as np
 import argparse
+import reporter
 import shutil
 import cv2
 import sys
 import os
 from termcolor import colored
 
-emnist_letters_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-letters-train-lowercase.csv"
-# emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train-modded.csv"
-emnist_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/emnist/emnist-byclass-train.csv"
-AZ_dataset_path = r"ocr-keras-tensorflow/pyimagesearch/dataset/a_z_handwritten_data.csv"
-model_path = r"models/new/handwriting-lowercase.model"
+# emnist_letters_dataset_path = r"ocr_keras_tensorflow/pyimagesearch/dataset/emnist/emnist_letters_train_lowercase.csv"
+emnist_letters_dataset_path = r"ocr_keras_tensorflow/pyimagesearch/dataset/emnist/emnist_letters_train_trimmed_letters_only.csv"
+# emnist_dataset_path = r"ocr_keras_tensorflow/pyimagesearch/dataset/emnist/emnist_byclass_train_modded.csv"
+# emnist_dataset_path = r"ocr_keras_tensorflow/pyimagesearch/dataset/emnist/emnist_byclass_train.csv"
+emnist_dataset_path = r"ocr_keras_tensorflow/pyimagesearch/dataset/emnist/emnist_byclass_train_trimmed_letters_only.csv"
+custom_dataset_path = r"ocr_keras_tensorflow\\pyimagesearch\dataset\\letter_e.csv"
+AZ_dataset_path = r"ocr_keras_tensorflow/pyimagesearch/dataset/a_z_handwritten_data.csv"
+
+perfect_letters = r"ocr_keras_tensorflow\\pyimagesearch\dataset\\perfect_letters_sm.csv"
+perfect_joined_letters = r"ocr_keras_tensorflow\\pyimagesearch\dataset\\perfect_joined_letters_sm.csv"
+typed_letters = r"ocr_keras_tensorflow\\pyimagesearch\dataset\\typed_letters_sm.csv"
+
+model_path = r"models/new/handwriting_perfect_letters_v2.model"
+# model_path = r"models/new/test.model"
 
 add_delay = False
 make_backup = False
 copy_model = True
+loaded_datasets = []
+continuation = exists(model_path)
 
 # initialize the number of epochs to train for, initial learning rate,
 # and batch size
-TRAIN_SESSIONS = 4
-EPOCHS = 1
-INIT_LR = 1e-1
-BS = 900  #batch size
+TRAIN_SESSIONS = 2
+EPOCHS = 50
+INIT_LR = 8e-3
+BS = 800  #batch size
 
 if os.path.exists("models") is False:
 	os.makedirs("models")
@@ -69,15 +80,6 @@ if make_backup:
 	dst_dir=r"models/new/handwriting-lowercase-back-up.model"
 	shutil.copy(model_path,dst_dir)
 
-
-# construct the argument parser and parse the arguments
-ap = argparse.ArgumentParser()
-ap.add_argument("-a", "--az", required=False, help="path to A-Z dataset", default=AZ_dataset_path)
-ap.add_argument("-e", "--emnist", required=False, help="path to emnist dataset", default=emnist_dataset_path)
-ap.add_argument("-m", "--model", type=str, required=False, help="path to output trained handwriting recognition model", default=model_path)
-ap.add_argument("-cn", "--createnew", type=bool, required=False, help="Overwrite curently existing model if one exists on the specified model path", default=False)
-args = vars(ap.parse_args())
-
 # optimise memory chunking for graphical prosessing cards
 ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
 SGD = tf.keras.optimizers.SGD
@@ -96,86 +98,96 @@ start_time = dt.datetime.now()
 print("run started at: " + start_time.strftime("%Y-%m-%d %H:%M:%S"))
 
 # define the list of label names
-labelNames = "0123456789"
-labelNames += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+# labelNames = "0123456789"
+labelNames = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 labelNames += "abcdefghijklmnopqrstuvwxyz"
 labelNames = [l for l in labelNames]
 
 # load the A-Z and MNIST datasets, respectively
 print("[INFO] loading datasets...")
-(azData, azLabels) = helpers.load_az_dataset(args["az"])
-(digitsData, digitsLabels) = helpers.load_mnist_dataset()
-# (emnistClassData, emnistClassLabels) = helpers.load_az_dataset(args["emnist"], flipped=True)
+# (azData, azLabels) = helpers.load_az_dataset(AZ_dataset_path)
+# (digitsData, digitsLabels) = helpers.load_mnist_dataset()
+(emnistClassData, emnistClassLabels) = helpers.load_az_dataset(emnist_dataset_path, flipped=True)
 (emnistLettersData, emnistLettersLabels) = helpers.load_az_dataset(emnist_letters_dataset_path, flipped=True)
+(customData, customLabels) = helpers.load_az_dataset(custom_dataset_path, flipped=False)
+(perfectLettersData, perfectLettersLabels) = helpers.load_az_dataset(perfect_letters, flipped=False)
+(perfectJoinedLettersData, perfectJoinedLettersLabels) = helpers.load_az_dataset(perfect_joined_letters, flipped=False)
+(typedLettersData, typedLettersLabels) = helpers.load_az_dataset(typed_letters, flipped=False)
 print("[INFO] datasets loaded.")
+
+# label_set1 = set(emnistClassLabels)
+# label_set2 = set(emnistLettersLabels)
 
 # the MNIST dataset occupies the labels 0-9, so let's add 10 to every
 # A-Z label to ensure the A-Z characters are not incorrectly labeled as digits
-azLabels += 10
+# azLabels += 10
 # emnistLettersLabels += 9 # +9 because it starts at index 1 instead of 0
+emnistClassLabels -= 10 # -10 because the numbers have been removed
+emnistLettersLabels -= 10 # -10 because the numbers have been removed
+customLabels -= 10
+perfectLettersLabels -= 10
+perfectJoinedLettersLabels -= 10
+typedLettersLabels -= 10
 
 # stack the A-Z data and labels with the MNIST digits data and labels
 
-# 0:00 hours per 10 epochs
-# data = np.vstack([azData, digitsData, emnistLettersData])
-# labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels])
+data = np.empty([0,28,28], "uint8")
+labels = np.empty([0,])
 
-# 0:00 hours per 10 epochs
-data = np.vstack([digitsData, emnistLettersData])
-labels = np.hstack([digitsLabels, emnistLettersLabels])
+# loaded_datasets.append(AZ_dataset_path)
+# data = np.vstack([data, azData])
+# labels = np.hstack([labels, azLabels])
 
-# 3:10:29 hours per 10 epochs
-# data = np.vstack([azData, digitsData, emnistLettersData, emnistClassData])
-# labels = np.hstack([azLabels, digitsLabels, emnistLettersLabels, emnistClassLabels])
+# loaded_datasets.append("mnist_dataset")
+# data = np.vstack([data, digitsData])
+# labels = np.hstack([labels, data, digitsLabels])
 
-# 1:20:00 hours per 10 epochs
-# data = np.vstack([emnistClassData]) 	
-# labels = np.hstack([emnistClassLabels])
+loaded_datasets.append(emnist_letters_dataset_path)
+data = np.vstack([data, emnistLettersData])
+labels = np.hstack([labels, emnistLettersLabels])
+
+loaded_datasets.append(emnist_dataset_path)
+data = np.vstack([data, emnistClassData])
+labels = np.hstack([labels, emnistClassLabels])
+
+loaded_datasets.append(custom_dataset_path)
+data = np.vstack([data, customData])
+labels = np.hstack([labels, customLabels])
+
+load_times = 30
+loaded_datasets.append(perfect_letters + " (x" +load_times + ")")
+loaded_datasets.append(perfect_joined_letters + " (x" +load_times + ")")
+loaded_datasets.append(typed_letters + " (x" +load_times + ")")
+for i in range(0, load_times):
+	data = np.vstack([data, perfectLettersData])
+	labels = np.hstack([labels, perfectLettersLabels])
+
+	data = np.vstack([data, perfectJoinedLettersData])
+	labels = np.hstack([labels, perfectJoinedLettersLabels])
+
+	data = np.vstack([data, typedLettersData])
+	labels = np.hstack([labels, typedLettersLabels])
+
 
 labels_set = set(labels)
 if(len(labels_set) != len(labelNames)):
+	print()
 	print(labels_set)
 	print()
 	print(labelNames)
 	print()
 	sys.exit(colored("ValueError: Number of classes, "+ str(len(labels_set)) +", does not match the size of the labelNames, "+ str(len(labelNames)) +". Try specifying the labels parameter", "red"))
 
-# each image in the A-Z and MNIST digts datasets are 28x28 pixels;
-# however, the architecture we're using is designed for 32x32 images,
-# so we need to resize them to 32x32
-data = [cv2.resize(image, (32, 32)) for image in data]
-data = np.array(data, dtype="float32")
-
-# add a channel dimension to every image in the dataset and scale the
-# pixel intensities of the images from [0, 255] down to [0, 1]
-data = np.expand_dims(data, axis=-1)
-data /= 255.0
-
-# convert the labels from integers to vectors
-le = LabelBinarizer()
-labels = le.fit_transform(labels)
-counts = labels.sum(axis=0)
-
-# account for skew in the labeled data
-classTotals = labels.sum(axis=0)
-classWeight = {}
-
-# loop over all classes and calculate the class weight
-for i in range(0, len(classTotals)):
-	classWeight[i] = classTotals.max() / classTotals[i]
-
 for i in range(TRAIN_SESSIONS):
-	# log_path = "ocr-keras-tensorflow/logs/" + start_time.strftime("%Y-%m-%d %H_%M")
-	# Path(log_path).mkdir(parents=True, exist_ok=True)
-
-	# f = open(log_path + "/training_session_"+ str(i) +".md", 'w')
-	# sys.stdout = f
-	
 	print("started training session " + str(i+1))
 
+	print("shuffle dataset records")
+	(newData, newLabels, classWeight, le) = helpers.shuffle(data, labels, 3*i)
+
 	# partition the data into training and testing splits using 80% of
-	# the data for training and the remaining 20% for testing
-	(trainX, testX, trainY, testY) = train_test_split(data, labels, test_size=0.10, stratify=labels, random_state=42)
+	# the data for training and the remaining 10% for testing
+	# X == data, Y == labels
+	(trainX, testX, trainY, testY) = train_test_split(newData, newLabels, test_size=0.10, stratify=newLabels, random_state=7*i)
 
 	# construct the image generator for data augmentation
 	aug = ImageDataGenerator(
@@ -187,15 +199,16 @@ for i in range(TRAIN_SESSIONS):
 		horizontal_flip=False,
 		fill_mode="nearest")
 
-	if(exists(args["model"]) == False or args["createnew"]):
+	if(continuation == False):
 		# initialize and compile our deep neural network
 		print("[INFO] compiling model...")
-		opt = SGD(learning_rate=INIT_LR, decay=INIT_LR / EPOCHS)
+		# opt = SGD(learning_rate=INIT_LR, decay=INIT_LR / EPOCHS)
+		opt = SGD(learning_rate=INIT_LR, decay=0.001)
 		model = ResNet.build(width=32, height=32, depth=1, classes=len(le.classes_), stages=(3, 4, 4), filters=(64, 64, 128, 256), reg=0.0005)
 		model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
 	else:
 		print("[INFO] loading existing model...")
-		model = load_model(args["model"])
+		model = load_model(model_path)
 
 	# train the network
 	print("[INFO] training network...")
@@ -203,10 +216,14 @@ for i in range(TRAIN_SESSIONS):
 	training_time = dt.datetime.now()
 	print("training started at: " + training_time.strftime("%Y-%m-%d %H:%M:%S"))
 
+	batch_size = BS
+	if len(trainX) < BS:
+		batch_size = 1 
+
 	H = model.fit(
 		aug.flow(trainX, trainY, batch_size=BS),
 		validation_data=(testX, testY),
-		steps_per_epoch=len(trainX) // BS,
+		steps_per_epoch=len(trainX) / batch_size,
 		epochs=EPOCHS,
 		class_weight=classWeight,
 		verbose=1
@@ -214,10 +231,10 @@ for i in range(TRAIN_SESSIONS):
 
 	# save the model to disk
 	print("[INFO] serializing network...")
-	model.save(args["model"], save_format="h5")
+	model.save(model_path, save_format="h5")
 
 	if copy_model:
-		model_path_arr = args["model"].split("/")
+		model_path_arr = model_path.split("/")
 		new_model_path = "models/back-up/" + start_time.strftime("%Y-%m-%d_%H-%M-%S") + "/"
 		
 		if os.path.exists(new_model_path) is False:
@@ -225,12 +242,13 @@ for i in range(TRAIN_SESSIONS):
 
 		model_name = model_path_arr[-1].split(".")
 		new_model_name = new_model_path + model_name[0] + "-" + str(i+1) + "x" + str(EPOCHS) + "." + model_name[1]
-		shutil.copy(args["model"], new_model_name)
+		shutil.copy(model_path, new_model_name)
+		reporter.log_training_settings(INIT_LR, batch_size, EPOCHS, i, loaded_datasets, continuation, new_model_path)
 
 
 	# evaluate the network
 	print("[INFO] evaluating network...")
-	predictions = model.predict(testX, batch_size=BS)
+	predictions = model.predict(testX, batch_size=batch_size)
 	print(classification_report(testY.argmax(axis=1), predictions.argmax(axis=1), target_names=labelNames))
 
 	# construct a plot that plots and saves the training history
@@ -244,7 +262,12 @@ for i in range(TRAIN_SESSIONS):
 	plt.ylabel("Loss/Accuracy")
 	plt.legend(loc="lower left")
 	try:
-		filename = "ocr-keras-tensorflow/plots/" + helpers.get_unique_filename("plot")
+		filepath = "ocr_keras_tensorflow/plots/" + start_time.strftime("%Y-%m-%d_%H-%M-%S") + "/"
+
+		if os.path.exists(filepath) is False:
+			os.makedirs(filepath)
+
+		filename = filepath + helpers.get_unique_filename("plot")
 		plt.savefig(filename)
 	except Exception as e:
 		print("could not save plot")
@@ -273,8 +296,9 @@ for i in range(TRAIN_SESSIONS):
 		# label on the image
 		image = cv2.merge([image] * 3)
 		image = cv2.resize(image, (96, 96), interpolation=cv2.INTER_LINEAR)
-		cv2.putText(image, label, (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
-			color, 2)
+		cv2.putText(image, label, (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, color, 2)
+		# cv2.putText(image, labelNames[np.argmax(testY[i])], (88, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255,0,0), 2)
+		cv2.putText(img=image, text=labelNames[np.argmax(testY[i])], org=(70, 20), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.75, color=(180, 180, 0), thickness=2)
 
 		# add the image to our list of output images
 		images.append(image)
@@ -286,7 +310,12 @@ for i in range(TRAIN_SESSIONS):
 
 	# show the output montage
 	try:
-		filename = "ocr-keras-tensorflow/images/" + helpers.get_unique_filename("OCR Results")
+		filepath = "ocr_keras_tensorflow/images/" + start_time.strftime("%Y-%m-%d_%H-%M-%S") + "/"
+
+		if os.path.exists(filepath) is False:
+			os.makedirs(filepath)
+
+		filename = filepath + helpers.get_unique_filename("OCR Results")
 		cv2.imwrite(filename, montage)
 	except Exception as e:
 		print("could not save image")
