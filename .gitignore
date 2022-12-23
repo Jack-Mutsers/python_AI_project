@@ -12,5 +12,4 @@ ocr_keras_tensorflow/pyimagesearch/dataset/A_Z_handwritten_data.csv
 ocr_keras_tensorflow/pyimagesearch/dataset/emnist/
 
 !models/
-models/*
 !models/working/

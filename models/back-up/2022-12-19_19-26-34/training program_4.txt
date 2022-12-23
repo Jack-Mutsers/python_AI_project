@@ -1,0 +1,10 @@
+continuation of: 2022-12-19_19-06-29/handwriting_perfect_letters_v2-1x30.model
+
+initial training speed: 1e-2
+batch size: 800
+epochs: 30
+sessions: 1
+
+dataset:
+- perfect_letters_sm (x10)
+- perfect_joined_letters_sm (x10)
