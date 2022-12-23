@@ -1,12 +1,18 @@
-
 # import the necessary packages
 from __future__ import print_function
+
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0,parentdir) 
+
 from types import NoneType
 from imutils.video import VideoStream
 from PIL import Image
 from PIL import ImageTk
 from tkinter import ttk
 from tkinter import filedialog
+import ocr_handwriting_recognition.ocr_reader as ocr_reader
 import numpy as np
 import tkinter as tki
 import pandas as pd
@@ -33,10 +39,12 @@ class CameraController:
         self.thread = None
         self.detection_thread = None
         self.stopEvent = None
+        self.words_detected = False
         self.net = cv2.dnn.readNet(east)
         self.rW = None
         self.rH = None
         self.boxes = []
+        self.words = []
 
         # define the two output layer names for the EAST detector model that
         # we are interested -- the first is the output probabilities and the
@@ -156,8 +164,9 @@ class CameraController:
                 self.rect_frame = self.frame.copy()
                 self.orig = self.frame.copy()
         
+                image = self.orig.copy()
                 # loop over the bounding boxes
-                for (startX, startY, endX, endY) in self.boxes:
+                for i, (startX, startY, endX, endY) in enumerate(self.boxes):
                     # scale the bounding box coordinates based on the respective
                     # ratios
                     startX = int(startX * self.rW)
@@ -166,12 +175,22 @@ class CameraController:
                     endY = int(endY * self.rH)
 
                     # draw the bounding box on the frame
-                    cv2.rectangle(self.orig, (startX, startY), (endX, endY), (0, 255, 0), 2)
+                    cv2.rectangle(image, (startX, startY), (endX, endY), (0, 255, 0), 2)
+                    
+                    if len(self.words) > i:
+                        word = self.words[i]
+
+                        label = word[0]
+                        if label == "[error] word not found":
+                            label = word[0]
+
+                        # cv2.putText(image, label, (startX, startY - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 0, 0), 2)
+                        cv2.putText(image, label, (startX + 5, startY + 15), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 0, 0), 2)
 
 				# OpenCV represents images in BGR order; however PIL
 				# represents images in RGB order, so we need to swap
 				# the channels, then convert to PIL and ImageTk format
-                image = cv2.cvtColor(self.orig, cv2.COLOR_BGR2RGB)
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(image)
                 image = ImageTk.PhotoImage(image)
 		
@@ -234,6 +253,48 @@ class CameraController:
             
             self.boxes = boxes
 
+            # if (type(self.image) != NoneType and self.words_detected) or len(self.boxes) < 1:
+            #     continue
+
+            words = self.get_cropped_image()
+            word_list = []
+            for i, word in enumerate(words):
+                # if i == 2:
+                #     cv2.imshow("Image", word)
+                #     cv2.waitKey(0)
+                (prediction, expectation) = ocr_reader.read_image(word)
+                word_list.append([prediction, expectation])
+
+                print()
+                print("prediction: "+prediction)
+                print("expected: "+expectation)
+
+            self.words = []
+            self.words = word_list
+
+            if type(self.image) != NoneType:
+                self.words_detected = True
+
+    def get_cropped_image(self):
+        words = []
+        for (startX, startY, endX, endY) in self.boxes:
+            # scale the bounding box coordinates based on the respective
+            # ratios
+            startX = int(startX * self.rW)
+            startY = int(startY * self.rH)
+            endX = int(endX * self.rW)
+            endY = int(endY * self.rH)
+
+            # draw the bounding box on the frame
+            roi=self.orig[startY:endY, startX:endX]
+
+            # cv2.imshow("Image", roi)
+            # cv2.waitKey(0)
+            
+            words.append(roi)
+
+        return words
+
     def takeSnapshot(self):
 		# grab the current timestamp and use it to construct the
 		# output path
@@ -245,6 +306,7 @@ class CameraController:
 
 		# save the file
         cv2.imwrite(p, self.orig.copy())
+        # cv2.imwrite(p, self.frame.copy())
         print("[INFO] saved {}".format(filename))
 
     def returnCameraIndexes(self):
@@ -290,6 +352,9 @@ class CameraController:
             filetypes = [('image','*.jpg'), ('image','*.jpeg'),('image', '*.png')]
             self.path = filedialog.askopenfilename( title="Select file", filetypes=filetypes)
             self.image = cv2.imread(self.path)
+
+        self.words_detected = False
+        self.words = []
 
     def onClose(self):
 		# set the stop event, cleanup the camera, and allow the rest of

@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import datetime as dt
 import numpy as np
-import argparse
 import reporter
 import shutil
 import cv2
@@ -48,9 +47,9 @@ continuation = exists(model_path)
 
 # initialize the number of epochs to train for, initial learning rate,
 # and batch size
-TRAIN_SESSIONS = 2
-EPOCHS = 50
-INIT_LR = 8e-3
+TRAIN_SESSIONS = 3
+EPOCHS = 10
+INIT_LR = 1e-1
 BS = 800  #batch size
 
 if os.path.exists("models") is False:
@@ -155,10 +154,10 @@ data = np.vstack([data, customData])
 labels = np.hstack([labels, customLabels])
 
 load_times = 30
-loaded_datasets.append(perfect_letters + " (x" +load_times + ")")
-loaded_datasets.append(perfect_joined_letters + " (x" +load_times + ")")
-loaded_datasets.append(typed_letters + " (x" +load_times + ")")
-for i in range(0, load_times):
+loaded_datasets.append(perfect_letters + " (x" + str(load_times) + ")")
+loaded_datasets.append(perfect_joined_letters + " (x" + str(load_times) + ")")
+loaded_datasets.append(typed_letters + " (x" + str(load_times) + ")")
+for _ in range(0, load_times):
 	data = np.vstack([data, perfectLettersData])
 	labels = np.hstack([labels, perfectLettersLabels])
 
@@ -243,7 +242,7 @@ for i in range(TRAIN_SESSIONS):
 		model_name = model_path_arr[-1].split(".")
 		new_model_name = new_model_path + model_name[0] + "-" + str(i+1) + "x" + str(EPOCHS) + "." + model_name[1]
 		shutil.copy(model_path, new_model_name)
-		reporter.log_training_settings(INIT_LR, batch_size, EPOCHS, i, loaded_datasets, continuation, new_model_path)
+		reporter.log_training_settings(INIT_LR, batch_size, EPOCHS, i+1, loaded_datasets, continuation, new_model_path)
 
 
 	# evaluate the network
