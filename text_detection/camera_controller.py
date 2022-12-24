@@ -39,7 +39,6 @@ class CameraController:
         self.thread = None
         self.detection_thread = None
         self.stopEvent = None
-        self.words_detected = False
         self.net = cv2.dnn.readNet(east)
         self.rW = None
         self.rH = None
@@ -253,15 +252,9 @@ class CameraController:
             
             self.boxes = boxes
 
-            # if (type(self.image) != NoneType and self.words_detected) or len(self.boxes) < 1:
-            #     continue
-
             words = self.get_cropped_image()
             word_list = []
-            for i, word in enumerate(words):
-                # if i == 2:
-                #     cv2.imshow("Image", word)
-                #     cv2.waitKey(0)
+            for word in words:
                 (prediction, expectation) = ocr_reader.read_image(word)
                 word_list.append([prediction, expectation])
 
@@ -271,9 +264,6 @@ class CameraController:
 
             self.words = []
             self.words = word_list
-
-            if type(self.image) != NoneType:
-                self.words_detected = True
 
     def get_cropped_image(self):
         words = []
@@ -353,7 +343,6 @@ class CameraController:
             self.path = filedialog.askopenfilename( title="Select file", filetypes=filetypes)
             self.image = cv2.imread(self.path)
 
-        self.words_detected = False
         self.words = []
 
     def onClose(self):

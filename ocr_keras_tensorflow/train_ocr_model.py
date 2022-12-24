@@ -47,9 +47,9 @@ continuation = exists(model_path)
 
 # initialize the number of epochs to train for, initial learning rate,
 # and batch size
-TRAIN_SESSIONS = 3
-EPOCHS = 10
-INIT_LR = 1e-1
+TRAIN_SESSIONS = 2
+EPOCHS = 50
+INIT_LR = 2e-1
 BS = 800  #batch size
 
 if os.path.exists("models") is False:
@@ -141,19 +141,19 @@ labels = np.empty([0,])
 # data = np.vstack([data, digitsData])
 # labels = np.hstack([labels, data, digitsLabels])
 
-loaded_datasets.append(emnist_letters_dataset_path)
-data = np.vstack([data, emnistLettersData])
-labels = np.hstack([labels, emnistLettersLabels])
+# loaded_datasets.append(emnist_letters_dataset_path)
+# data = np.vstack([data, emnistLettersData])
+# labels = np.hstack([labels, emnistLettersLabels])
 
-loaded_datasets.append(emnist_dataset_path)
-data = np.vstack([data, emnistClassData])
-labels = np.hstack([labels, emnistClassLabels])
+# loaded_datasets.append(emnist_dataset_path)
+# data = np.vstack([data, emnistClassData])
+# labels = np.hstack([labels, emnistClassLabels])
 
-loaded_datasets.append(custom_dataset_path)
-data = np.vstack([data, customData])
-labels = np.hstack([labels, customLabels])
+# loaded_datasets.append(custom_dataset_path)
+# data = np.vstack([data, customData])
+# labels = np.hstack([labels, customLabels])
 
-load_times = 30
+load_times = 50
 loaded_datasets.append(perfect_letters + " (x" + str(load_times) + ")")
 loaded_datasets.append(perfect_joined_letters + " (x" + str(load_times) + ")")
 loaded_datasets.append(typed_letters + " (x" + str(load_times) + ")")
@@ -161,8 +161,8 @@ for _ in range(0, load_times):
 	data = np.vstack([data, perfectLettersData])
 	labels = np.hstack([labels, perfectLettersLabels])
 
-	data = np.vstack([data, perfectJoinedLettersData])
-	labels = np.hstack([labels, perfectJoinedLettersLabels])
+	# data = np.vstack([data, perfectJoinedLettersData])
+	# labels = np.hstack([labels, perfectJoinedLettersLabels])
 
 	data = np.vstack([data, typedLettersData])
 	labels = np.hstack([labels, typedLettersLabels])

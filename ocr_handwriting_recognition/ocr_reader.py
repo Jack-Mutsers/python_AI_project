@@ -10,8 +10,8 @@ import imutils
 from spellchecker import SpellChecker
 
 # model_path = r"models/back-up/2022-11-10_11-11-16/handwriting-lowercase-4x100.model"
-model_path = r"models/new/handwriting_perfect_letters_v2.model"
-# model_path = r"models/working/handwriting_lowercase_uppercase_clasification.model"
+# model_path = r"models/new/handwriting_perfect_letters_v2.model"
+model_path = r"models/working/handwriting_no_numbers.model"
 
 # define the list of label names
 labelNames = ""
