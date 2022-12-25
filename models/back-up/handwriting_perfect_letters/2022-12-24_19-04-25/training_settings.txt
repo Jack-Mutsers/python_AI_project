@@ -1,0 +1,11 @@
+continuation: False
+
+initial training speed: 0.2
+batch size: 800
+epochs: 50
+sessions: 2
+
+dataset:
+- perfect_letters_sm.csv (x50)
+- perfect_joined_letters_sm.csv (x50)
+- typed_letters_sm.csv (x50)

@@ -1,0 +1,14 @@
+continuation: True
+
+initial training speed: 0.1
+batch size: 800
+epochs: 50
+sessions: 2
+
+dataset:
+- emnist_letters_train_trimmed_letters_only.csv
+- emnist_byclass_train_trimmed_letters_only.csv
+- letter_e.csv
+- perfect_letters_sm.csv (x50)
+- perfect_joined_letters_sm.csv (x50)
+- typed_letters_sm.csv (x50)

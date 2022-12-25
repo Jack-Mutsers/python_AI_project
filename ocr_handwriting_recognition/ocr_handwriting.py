@@ -28,7 +28,7 @@ image_paths = [
 
 # model_path = r"models/back-up/2022-11-10_11-11-16/handwriting-lowercase-4x100.model"
 # model_path = r"models/new/handwriting_lowercase_letters_only2.model"
-model_path = r"models/new/handwriting_perfect_letters_v2.model"
+model_path = r"models/new/handwriting_perfect_letters.model"
 # model_path = r"models/working/handwriting_no_numbers.model"
 
 # define the list of label names

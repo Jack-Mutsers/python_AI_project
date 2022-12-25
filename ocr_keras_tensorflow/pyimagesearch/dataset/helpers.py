@@ -101,7 +101,7 @@ def prepare_data(data, labels):
 	for i in range(0, len(classTotals)):
 		classWeight[i] = classTotals.max() / classTotals[i]
 
-	return (data, labels, classWeight, le)
+	return (data, labels, classWeight, len(le.classes_))
 
 def show_loaded_dataset(labelNames, data, labels):
 	images = []
