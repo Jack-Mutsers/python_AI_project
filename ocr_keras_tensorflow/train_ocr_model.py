@@ -43,9 +43,9 @@ class OCR_TRAINER:
 
 		# initialize the number of epochs to train for, initial learning rate,
 		# and batch size
-		self.train_sessions = 1
-		self.epochs = 1
-		self.INIT_LR = 5e-2
+		self.train_sessions = 2
+		self.epochs = 50
+		self.INIT_LR = 2e-2
 		self.BS = 800  #batch size
 		self.start_time = None
 		self.ImageDataGenerator = None
@@ -113,9 +113,9 @@ class OCR_TRAINER:
 			{"location": emnist_letters_dataset_path, 	"flipped": True,  "offset": -10, "amount": 1},
 			{"location": emnist_dataset_path, 			"flipped": True,  "offset": -10, "amount": 1},
 			{"location": custom_dataset_path, 			"flipped": False, "offset": -10, "amount": 1},
-			{"location": perfect_letters, 				"flipped": False, "offset": -10, "amount": 30},
-			{"location": perfect_joined_letters, 		"flipped": False, "offset": -10, "amount": 30},
-			{"location": typed_letters, 				"flipped": False, "offset": -10, "amount": 30},
+			{"location": perfect_letters, 				"flipped": False, "offset": -10, "amount": 50},
+			# {"location": perfect_joined_letters, 		"flipped": False, "offset": -10, "amount": 50},
+			{"location": typed_letters, 				"flipped": False, "offset": -10, "amount": 50},
 		]
 
 		return dataset_loader.load_dataset(
