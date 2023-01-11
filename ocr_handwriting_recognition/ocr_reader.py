@@ -11,7 +11,8 @@ from spellchecker import SpellChecker
 
 # model_path = r"models/back-up/2022-11-10_11-11-16/handwriting-lowercase-4x100.model"
 # model_path = r"models/new/handwriting_perfect_letters_v2.model"
-model_path = r"models/working/handwriting_no_numbers.model"
+# model_path = r"models/working/handwriting_no_numbers.model"
+model_path = r"models/new/handwriting_perfect_letters.model"
 
 # define the list of label names
 labelNames = ""
@@ -72,9 +73,47 @@ def sort_contours(cnts, method="left-to-right"):
     # return the list of sorted contours and bounding boxes
     return (cnts, boundingBoxes)
 
+def extract_character(box, imgGray):
+    y = box[1]
+    y2 = y + box[3]
+    x = box[0]
+    x2 = x + box[2]
+
+    roi=imgGray[y:y2, x:x2]
+
+    thresh = cv2.threshold(roi, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    (tH, tW) = thresh.shape
+
+    # if the width is greater than the height, resize along the
+    # width dimension
+    if tW > tH:
+        thresh = imutils.resize(thresh, width=32)
+
+    # otherwise, resize along the height
+    else:
+        thresh = imutils.resize(thresh, height=32)
+
+    # re-grab the image dimensions (now that its been resized)
+    # and then determine how much we need to pad the width and
+    # height such that our image will be 32x32
+    (tH, tW) = thresh.shape
+    dX = int(max(0, 32 - tW) / 2.0)
+    dY = int(max(0, 32 - tH) / 2.0)
+
+    # pad the image and force 32x32 dimensions
+    padded = cv2.copyMakeBorder(thresh, top=dY, bottom=dY, left=dX, right=dX, borderType=cv2.BORDER_CONSTANT, value=(0, 0, 0))
+    padded = cv2.resize(padded, (32, 32))
+
+    # prepare the padded image for classification via our
+    # handwriting OCR model
+    padded = padded.astype("float32") / 255.0
+    padded = np.expand_dims(padded, axis=-1)
+
+    return padded
+
 def get_bounding_boxes(contours, imgGray):
-    boxes=[] #store the dimensions of my bounding boxes
     chars=[] #store each bounding box for later
+    boxes = [] #store the dimensions of my bounding boxes
     min_cont_area=5
     
     for i, cnt in enumerate(contours):
@@ -88,42 +127,66 @@ def get_bounding_boxes(contours, imgGray):
                 x -= 3
 
             boxes.append([x,y,w,h]) 
-            
-            roi=imgGray[y:y+h, x:x+w]
 
-            thresh = cv2.threshold(roi, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-            (tH, tW) = thresh.shape
+    boxes = fix_multipart_characters(boxes)
 
-            # if the width is greater than the height, resize along the
-            # width dimension
-            if tW > tH:
-                thresh = imutils.resize(thresh, width=32)
+    for box in boxes:
+        char = extract_character(box, imgGray)
+        chars.append(char)
 
-            # otherwise, resize along the height
-            else:
-                thresh = imutils.resize(thresh, height=32)
-
-            # re-grab the image dimensions (now that its been resized)
-            # and then determine how much we need to pad the width and
-            # height such that our image will be 32x32
-            (tH, tW) = thresh.shape
-            dX = int(max(0, 32 - tW) / 2.0)
-            dY = int(max(0, 32 - tH) / 2.0)
-
-            # pad the image and force 32x32 dimensions
-            padded = cv2.copyMakeBorder(thresh, top=dY, bottom=dY, left=dX, right=dX, borderType=cv2.BORDER_CONSTANT, value=(0, 0, 0))
-            padded = cv2.resize(padded, (32, 32))
-
-            # prepare the padded image for classification via our
-            # handwriting OCR model
-            padded = padded.astype("float32") / 255.0
-            padded = np.expand_dims(padded, axis=-1)
-
-            chars.append(padded)
-    
     chars = np.array([c for c in chars], dtype="float32")
 
     return boxes, chars
+
+def fix_multipart_characters(contours):
+    merged = [] #store the merged bounding boxes to skip them later
+    boxes = [] #store the dimensions of my bounding boxes
+
+    for box in contours:
+        if box in merged:
+            continue
+        
+        top1 = box[1]
+        bottom1 = box[1] + box[3]
+        left1 = box[0]
+        right1 = box[0] + box[2]
+
+        for compare_box in contours:
+            if box == compare_box:
+                continue
+
+            top2 = compare_box[1]
+            bottom2 = compare_box[1] + compare_box[3]
+            left2 = compare_box[0]
+            right2 = compare_box[0] + compare_box[2]
+
+            is_different = box != compare_box
+            match_left = abs(left1 - left2) < 8
+            match_right = abs(right1 - right2) < 8
+            is_above = abs(top1 - bottom2) < 15
+            is_below = abs(bottom1 - top2) < 15
+
+            if is_different and match_left and match_right and (is_above or is_below):
+                merged.append(compare_box)
+
+                if is_above:
+                    box[1] = top2
+                    box[3] += compare_box[3] + abs(top1 - bottom2)
+                elif is_below:
+                    box[3] += compare_box[3] + abs(top2 - bottom1)
+
+                # check if box 2 is further left
+                if left1 > left2:
+                    box[0] = left2
+                    box[2] += abs(left1-left2)
+
+                # check if box 2 is further right
+                if right1 < right2:
+                    box[2] += abs(right1 - right2)
+        
+        boxes.append(box)
+    
+    return boxes
 
 def read_image(frame):
     # cv2.imshow("Image", frame)

@@ -179,7 +179,7 @@ class CameraController:
                     if len(self.words) > i:
                         word = self.words[i]
 
-                        label = word[0]
+                        label = word[1]
                         if label == "[error] word not found":
                             label = word[0]
 
